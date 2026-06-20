@@ -1,26 +1,20 @@
 /**********************************************************************
- * DotMagnet.jsx
+ * DotMagnet.jsx  v3
  * --------------------------------------------------------------------
- * 全ドットを1枚のシェイプレイヤー（DotField）にまとめることで、
- * タイムライン上はレイヤー3枚（BG / DotField / DOT_FIELD）のみ。
+ * グループ「スケール」ではなく楕円「サイズ」にエクスプレッションをかける
+ * ことで、ヌル移動への反応を確実に動作させる改修版。
  *
- *   ・DOT_FIELD ヌルを動かす  → 近くのドットがサイズ＋色で反応
- *   ・Ring Count スライダー   → 0=全消し / 11=全表示（アニメ可）
- *   ・その他スライダーで影響範囲・サイズ・色強度・ランダム量を調整
+ * レイヤー構成: BG / DotField(全ドット1枚) / DOT_FIELD(ヌル)
  *
- * スライダー一覧（DOT_FIELD）:
- *   Ring Count    … 表示するリングの数(0〜11)
- *   Radius        … 影響範囲(px)
- *   Max Scale     … ヌル中心での最大サイズ(%)
- *   Base Scale    … 範囲外のドットの最小サイズ(%)
+ * スライダー（DOT_FIELD）:
+ *   Ring Count    … 表示するリング数(0=全消し, 11=全表示)
+ *   Radius        … ヌルの影響範囲(px)
+ *   Max Scale     … ヌル中心での最大サイズ(%)  ← dotSize基準
+ *   Base Scale    … 遠いドットの最小サイズ(%)  ← dotSize基準
  *   Falloff       … 反応の鋭さ
- *   Color Amount  … 色のつき方(%)
- *   Variation     … ドットごとのサイズのランダムばらつき(%)
- *   Seed          … ランダムの種（スクラブで変化）
- *
- * 使い方:
- *   File > Scripts > Run Script File... から本ファイルを実行。
- *   同名コンプが既にある場合は確認後に上書き。
+ *   Color Amount  … 色のつき方(%) 0=黒のまま
+ *   Variation     … ドットごとのサイズばらつき(%)
+ *   Seed          … ランダムの種
  **********************************************************************/
 
 (function DotMagnet(thisObj) {
@@ -40,14 +34,14 @@
         spacing:     40,
         addCenter:   true,
 
-        dotSize:     18,
+        dotSize:     18,      // 基準サイズ(px)。スライダー100%のときの直径
 
         // スライダー初期値
         ringCount:   11,
-        radius:      320,
+        radius:      300,
         maxScale:    320,
         baseScale:   35,
-        falloff:     1.5,
+        falloff:     2.0,
         colorAmount: 100,
         variation:   0,
         seed:        0,
@@ -67,7 +61,7 @@
     var CY = CONFIG.compH / 2;
 
     // =================================================================
-    // グリッド座標計算（コンプ空間）
+    // グリッド座標
     // =================================================================
     function gridInfo(idx) {
         if (CONFIG.addCenter && idx === 0) {
@@ -80,9 +74,6 @@
         return { ring: ring, px: CX + r * Math.cos(ang), py: CY + r * Math.sin(ang) };
     }
 
-    // =================================================================
-    // カラーパレット文字列（エクスプレッションに焼く）
-    // =================================================================
     function palStr() {
         var s = "[";
         for (var p = 0; p < CONFIG.palette.length; p++) {
@@ -94,34 +85,34 @@
     }
 
     // =================================================================
-    // スケールエクスプレッション（グループの ADBE Vector Scale 用）
-    // px/py/mr/di はそれぞれのドットの値をコードに直接焼き込む
+    // 楕円サイズエクスプレッション（グループスケールの代わりに使う）
+    // 最後の式が常に [s,s] になるため AE が確実に値を拾う
     // =================================================================
-    function scaleExpr(info, di) {
+    function sizeExpr(info, di) {
         return "" +
             "var px=" + info.px.toFixed(2) + ";var py=" + info.py.toFixed(2) + ";\n" +
             "var mr=" + info.ring + ";var di=" + di + ";\n" +
+            "var ds=" + CONFIG.dotSize + ";\n" +
             "var f=thisComp.layer(\"DOT_FIELD\");\n" +
             "var rc=Math.round(f.effect(\"Ring Count\")(\"Slider\"));\n" +
-            "if(mr>rc){[0,0];}else{\n" +
-            "  var m=f.transform.position;\n" +
-            "  var rad=Math.max(f.effect(\"Radius\")(\"Slider\"),1);\n" +
-            "  var mx=f.effect(\"Max Scale\")(\"Slider\");\n" +
-            "  var bs=f.effect(\"Base Scale\")(\"Slider\");\n" +
-            "  var fo=Math.max(f.effect(\"Falloff\")(\"Slider\"),0.01);\n" +
-            "  var vr=f.effect(\"Variation\")(\"Slider\");\n" +
-            "  var sd=f.effect(\"Seed\")(\"Slider\");\n" +
-            "  var d=length([px,py],m);\n" +
-            "  var infl=Math.pow(clamp(1-d/rad,0,1),fo);\n" +
-            "  var sc=linear(infl,0,1,bs,mx);\n" +
-            "  seedRandom(di+sd,true);\n" +
-            "  sc=sc*(1+random(-1,1)*(vr/100));\n" +
-            "  [sc,sc];\n" +
-            "}";
+            "var m=f.transform.position;\n" +
+            "var rad=Math.max(f.effect(\"Radius\")(\"Slider\"),1);\n" +
+            "var mx=f.effect(\"Max Scale\")(\"Slider\")/100;\n" +
+            "var bs=f.effect(\"Base Scale\")(\"Slider\")/100;\n" +
+            "var fo=Math.max(f.effect(\"Falloff\")(\"Slider\"),0.01);\n" +
+            "var vr=f.effect(\"Variation\")(\"Slider\");\n" +
+            "var sd=f.effect(\"Seed\")(\"Slider\");\n" +
+            "seedRandom(di+sd,true);\n" +
+            "var vf=1+random(-1,1)*(vr/100);\n" +
+            "var d=length([px,py],m);\n" +
+            "var infl=Math.pow(clamp(1-d/rad,0,1),fo);\n" +
+            "var sc=(mr>rc)?0:linear(infl,0,1,bs,mx)*vf;\n" +
+            "var s=ds*sc;\n" +
+            "[s,s];";
     }
 
     // =================================================================
-    // カラーエクスプレッション（グループの Fill Color 用）
+    // 色エクスプレッション
     // =================================================================
     function colorExpr(info, di) {
         return "" +
@@ -130,19 +121,16 @@
             "var pal=" + palStr() + ";\n" +
             "var f=thisComp.layer(\"DOT_FIELD\");\n" +
             "var rc=Math.round(f.effect(\"Ring Count\")(\"Slider\"));\n" +
-            "if(mr>rc){[0,0,0,1];}else{\n" +
-            "  var m=f.transform.position;\n" +
-            "  var rad=Math.max(f.effect(\"Radius\")(\"Slider\"),1);\n" +
-            "  var fo=Math.max(f.effect(\"Falloff\")(\"Slider\"),0.01);\n" +
-            "  var ca=f.effect(\"Color Amount\")(\"Slider\")/100;\n" +
-            "  var sd=f.effect(\"Seed\")(\"Slider\");\n" +
-            "  seedRandom(di+sd+7,true);\n" +
-            "  var col=pal[Math.floor(random(0,pal.length))];\n" +
-            "  var d=length([px,py],m);\n" +
-            "  var infl=Math.pow(clamp(1-d/rad,0,1),fo)*ca;\n" +
-            "  var k=[0,0,0];\n" +
-            "  [linear(infl,0,1,k[0],col[0]),linear(infl,0,1,k[1],col[1]),linear(infl,0,1,k[2],col[2]),1];\n" +
-            "}";
+            "var m=f.transform.position;\n" +
+            "var rad=Math.max(f.effect(\"Radius\")(\"Slider\"),1);\n" +
+            "var fo=Math.max(f.effect(\"Falloff\")(\"Slider\"),0.01);\n" +
+            "var ca=f.effect(\"Color Amount\")(\"Slider\")/100;\n" +
+            "var sd=f.effect(\"Seed\")(\"Slider\");\n" +
+            "seedRandom(di+sd+7,true);\n" +
+            "var col=pal[Math.floor(random(0,pal.length))];\n" +
+            "var d=length([px,py],m);\n" +
+            "var infl=(mr>rc)?0:Math.pow(clamp(1-d/rad,0,1),fo)*ca;\n" +
+            "[linear(infl,0,1,0,col[0]),linear(infl,0,1,0,col[1]),linear(infl,0,1,0,col[2]),1];";
     }
 
     // =================================================================
@@ -168,7 +156,6 @@
         var proj = app.project;
         if (!proj) { alert("プロジェクトが開いていません。"); return; }
 
-        // 重複防止
         var has = false;
         for (var ci = 1; ci <= proj.items.length; ci++) {
             if (proj.items[ci] instanceof CompItem && proj.items[ci].name === CONFIG.compName) {
@@ -184,11 +171,11 @@
             CONFIG.compName, CONFIG.compW, CONFIG.compH, 1, CONFIG.duration, CONFIG.fps);
         comp.openInViewer();
 
-        // ── 背景 ──────────────────────────────────
+        // 背景
         var bg = comp.layers.addSolid(CONFIG.bgColor, "BG", CONFIG.compW, CONFIG.compH, 1);
         bg.locked = true;
 
-        // ── コントロールヌル（DOT_FIELD）────────────
+        // DOT_FIELD ヌル（コントローラー兼マグネット）
         var ctrl = comp.layers.addNull();
         ctrl.name = "DOT_FIELD";
         ctrl.label = 11;
@@ -202,13 +189,13 @@
         addSlider(ctrl, "Variation",    CONFIG.variation);
         addSlider(ctrl, "Seed",         CONFIG.seed);
 
-        // ── 全ドットを1枚のシェイプレイヤーに ──────
-        // addShape() のデフォルト: position=[CX,CY], anchor=[0,0]
-        // → グループ position [dx,dy] がコンプ上の [CX+dx, CY+dy] に対応
+        // 全ドットを1枚のシェイプレイヤーに
         var shp = comp.layers.addShape();
         shp.name = "DotField";
+        // addShape() のデフォルト: position=[CX,CY], anchor=[0,0]
+        // → グループ offset [dx,dy] = コンプ位置 [CX+dx, CY+dy]
 
-        var root = shp.property("ADBE Root Vectors Group");
+        var root  = shp.property("ADBE Root Vectors Group");
         var total = CONFIG.rings * CONFIG.angular + (CONFIG.addCenter ? 1 : 0);
 
         for (var i = 0; i < total; i++) {
@@ -216,9 +203,11 @@
             var grp  = root.addProperty("ADBE Vector Group");
             var gc   = grp.property("ADBE Vectors Group");
 
-            // 楕円
-            var ell = gc.addProperty("ADBE Vector Shape - Ellipse");
-            ell.property("ADBE Vector Ellipse Size").setValue([CONFIG.dotSize, CONFIG.dotSize]);
+            // 楕円 ── サイズにエクスプレッションをかける（グループスケールより確実）
+            var ell     = gc.addProperty("ADBE Vector Shape - Ellipse");
+            var ellSize = ell.property("ADBE Vector Ellipse Size");
+            ellSize.setValue([CONFIG.dotSize, CONFIG.dotSize]);
+            ellSize.expression = sizeExpr(info, i);
 
             // フィル
             var fill  = gc.addProperty("ADBE Vector Graphic - Fill");
@@ -226,20 +215,17 @@
             fillC.setValue([0, 0, 0, 1]);
             fillC.expression = colorExpr(info, i);
 
-            // グループ変換（位置を焼く・スケールをエクスプレッションで制御）
+            // グループ位置（静的に焼く）
             var gt = grp.property("ADBE Vector Transform Group");
             gt.property("ADBE Vector Position").setValue([info.px - CX, info.py - CY]);
-            gt.property("ADBE Vector Scale").expression = scaleExpr(info, i);
         }
 
         ctrl.moveToBeginning();
         alert(
-            "DotMagnet を生成しました！\n\n" +
-            "レイヤーは 3 枚だけです:\n" +
-            "  DOT_FIELD … ヌルを動かすとドットが反応\n" +
-            "  DotField  … 全ドット入りシェイプレイヤー\n" +
-            "  BG        … 白背景\n\n" +
-            "DOT_FIELD のスライダーで動きを自在に調整できます。"
+            "DotMagnet v3 を生成しました！\n\n" +
+            "DOT_FIELD ヌルを動かすと近くのドットが反応します。\n" +
+            "反応しない場合: スライダーの Radius を大きくしてみてください。\n\n" +
+            "レイヤーは 3 枚のみ（DOT_FIELD / DotField / BG）"
         );
     }
 
