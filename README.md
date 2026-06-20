@@ -1,8 +1,19 @@
-# PolarDots — After Effects ジェネラティブ・ドットアニメーション
+# After Effects ジェネラティブ・ドットアニメーション
 
 極座標グリッド上のドット群が、`State`（状態）の切り替えに合わせて
 位置・サイズ・色を滑らかに変化させるモーショングラフィックスを、
 After Effects 上にワンクリックで生成する ExtendScript です。
+
+## 収録スクリプト
+
+| ファイル | 状態数 | 特徴 |
+|---|---|---|
+| `PolarDots.jsx` | 5 | RANDOM→SIMPLICITY→SPACE→IMPERFECT→VIVID |
+| `DotPrinciples.jsx` | 6 | 上記に **EMERGE（発生/消散）** と **SPACE対称型（最外周の対称点）** を追加した発展版 |
+
+---
+
+## PolarDots.jsx
 
 ## 状態シーケンス
 
@@ -38,3 +49,22 @@ After Effects 上にワンクリックで生成する ExtendScript です。
   自身の index から計算。状態間は `ease()` / `linear()` で補間。
 - **時間変化**: SPACE の「動く選択」、IMPERFECT のリング移動、VIVID のノイズ明滅は
   すべて `time` から自動生成されるため、キーフレーム不要で有機的に動きます。
+
+---
+
+## DotPrinciples.jsx（発展版）
+
+`PolarDots.jsx` をベースに、参考画像をもとして次の2状態を追加した6状態版です。
+
+| State | 名前 | 挙動 |
+|------:|------|------|
+| 0 | **EMERGE** | ほぼ全消し、数個だけ可視（発生/消散）|
+| 1 | **RANDOM** | 円内ランダム配置・極小・黒 |
+| 2 | **SIMPLICITY** | 同心円グリッドに整列・均一・黒 |
+| 3 | **SPACE** | 最外周の対称点（ゆっくり回転）＋散財する数個だけ拡大 |
+| 4 | **IMPERFECT** | 中層の1リングだけが一斉に拡大 |
+| 5 | **VIVID** | マルチカラー＋ノイズでサイズが明滅 |
+
+使い方・調整方法は `PolarDots.jsx` と同じ（`State` は 0〜5）。
+`CONFIG` で対称点の数 `spaceSymCount`・回転速度 `spaceSymSpeed`・
+EMERGE で残す割合 `emergeKeepRatio` などを調整できます。
