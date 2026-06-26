@@ -795,7 +795,10 @@
         var t0 = comp.time;
         var fps = comp.frameRate;
         var elastic = 5;
-        try { elastic = ctrl.effect("Animation Elasticity")(1).value; } catch (e) {}
+        try {
+            var elP = fxProp(ctrl.effect("Animation Elasticity"), ["Slider", 1]);
+            if (elP) elastic = elP.value;
+        } catch (e) {}
 
         // Scale キーフレーム
         var scale = master.property("ADBE Transform Group").property("ADBE Scale");
