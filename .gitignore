@@ -1,0 +1,27 @@
+# --- Blender 出力 (バージョン管理しない) ---
+output/
+*.blend
+*.blend1
+*.blend2
+
+# --- レンダー成果物 ---
+*.png
+*.exr
+*.jpg
+*.jpeg
+*.mov
+*.mp4
+
+# --- OS / エディタ ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 注: config.json はバージョン管理する (設定の共有のため)
